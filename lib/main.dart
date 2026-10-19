@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'dart:convert'; // Required to parse JSON
+import 'dart:convert';
 
 void main() {
   runApp(const HealthDashboardApp());
 }
 
-// 1. The Root Application
 class HealthDashboardApp extends StatelessWidget {
   const HealthDashboardApp({super.key});
 
@@ -15,13 +14,11 @@ class HealthDashboardApp extends StatelessWidget {
     return MaterialApp(
       title: 'Public Health',
       theme: ThemeData(colorScheme: ColorScheme.fromSeed(seedColor: Colors.teal)),
-      home: const DashboardScreen(), // Points to our stateful screen
+      home: const DashboardScreen(),
     );
   }
 }
 
-// 2. The Stateful Screen
-// (It is "Stateful" because the UI must redraw when the data finishes loading)
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
 
@@ -33,27 +30,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
   List<dynamic> apiData = [];
   bool isLoading = true;
 
-  // This built-in function fires exactly once when the screen first opens
   @override
   void initState() {
     super.initState();
     fetchData();
   }
 
-  // 3. The HTTP Request
   Future<void> fetchData() async {
-    //IP RULE:
-    // If testing as a Linux Desktop app, 127.0.0.1 works.
-    // If testing on an Android Emulator, you MUST change this to 10.0.2.2
     final url = Uri.parse('http://127.0.0.1:8000/api/v1/cases/western_cape');
 
     try {
       final response = await http.get(url);
       if (response.statusCode == 200) {
-        print('RAW JSON: ${response.body}');
         setState(() {
           apiData = json.decode(response.body);
-          isLoading = false; // Turn off the loading spinner
+          isLoading = false;
         });
       } else {
         print('Server Error: ${response.statusCode}');
@@ -63,7 +54,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
-  // 4. The UI Builder
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -72,21 +62,73 @@ class _DashboardScreenState extends State<DashboardScreen> {
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
       ),
       body: isLoading
-          ? const Center(child: CircularProgressIndicator()) // Shows while waiting for API
-          : ListView.builder( // Loops through my JSON list
-        itemCount: apiData.length,
-        itemBuilder: (context, index) {
-          final item = apiData[index];
-          return Card(
-            margin: const EdgeInsets.all(8.0),
-            child: ListTile(
-              leading: const Icon(Icons.medical_services),
-              title: Text('Week: ${item['week']}'),
-
-              subtitle: Text('Deaths: ${item['western_cape'] ?? 'No Data'}'), // THis ?? opertaor tells Dart : If the value is null , print No data
+          ? const Center(child: CircularProgressIndicator())
+          : Column(
+        children: [
+          DataSummaryHeader(recordCount: apiData.length), // Comma added here!
+          Expanded(
+            child: ListView.builder(
+              itemCount: apiData.length,
+              itemBuilder: (context, index) {
+                final item = apiData[index];
+                return MortalityCard(
+                  week: item['week'].toString(),
+                  deaths: item['western_cape'],
+                );
+              },
             ),
-          );
+          ),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          setState(() {
+            isLoading = true;
+          });
+          fetchData();
         },
+        child: const Icon(Icons.refresh),
+      ),
+    );
+  }
+}
+
+
+
+class DataSummaryHeader extends StatelessWidget {
+  final int recordCount;
+
+  const DataSummaryHeader({super.key, required this.recordCount});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16.0),
+      width: double.infinity,
+      color: Theme.of(context).colorScheme.primaryContainer,
+      child: Text(
+        'Showing $recordCount records',
+        style: Theme.of(context).textTheme.titleMedium,
+        textAlign: TextAlign.center,
+      ),
+    );
+  }
+}
+
+class MortalityCard extends StatelessWidget {
+  final String week;
+  final dynamic deaths;
+
+  const MortalityCard({super.key, required this.week, this.deaths});
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.all(8.0),
+      child: ListTile(
+        leading: const Icon(Icons.calendar_month),
+        title: Text('Week: $week'),
+        subtitle: Text('Deaths: ${deaths ?? 'No Data'}'),
       ),
     );
   }
